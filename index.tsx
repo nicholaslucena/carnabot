@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GoogleGenAI, Chat } from "@google/genai";
-import { Send, Info, RefreshCw, Share2 } from 'lucide-react';
+import { Send, RefreshCw, Share2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 // --- CONFIGURAÇÃO DA PLANILHA ---
@@ -204,7 +204,7 @@ const App = () => {
   };
 
   const getWhatsAppLink = (text: string) => {
-    const footer = "\n\nInformação do CarnaBot 2026. Tecnologia à serviço da zoeira, galhofa, farra e plahaçada sem limites";
+    const footer = "\n\nInformação providenciada pelo Carnabot 2026: tecnologia a serviço da Zoeira";
     const fullMessage = text + footer;
     return `https://wa.me/?text=${encodeURIComponent(fullMessage)}`;
   };
@@ -235,64 +235,68 @@ const App = () => {
 
       <main className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
         <div className="max-w-3xl mx-auto w-full flex flex-col">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex w-full mb-4 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
+          {messages.map((msg) => {
+            // Check if the bot message is a successful block search or a "not found" message
+            const isBlockInfo = msg.sender === 'bot' && msg.text.includes('Local:');
+            
+            return (
               <div
-                className={`max-w-[85%] px-3 py-2 rounded-[12px] shadow-sm relative transition-all duration-200 ${
-                  msg.sender === 'user'
-                    ? 'bg-[#effdde] text-gray-800 rounded-tr-none'
-                    : 'bg-white text-gray-800 rounded-tl-none'
-                }`}
-                style={msg.sender === 'user' ? { 
-                  backgroundColor: 'var(--tg-theme-button-color, #effdde)', 
-                  color: 'var(--tg-theme-button-text-color, #000000)' 
-                } : {
-                  backgroundColor: 'var(--tg-theme-bg-color, #ffffff)',
-                  color: 'var(--tg-theme-text-color, #000000)'
-                }}
+                key={msg.id}
+                className={`flex w-full mb-4 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                {/* Triangular Tail SVG - Sharp Corners */}
-                <div className={`absolute top-0 w-[8px] h-[8px] ${
-                  msg.sender === 'user' ? '-right-2' : '-left-2'
-                }`}>
-                  <svg width="8" height="8" viewBox="0 0 8 8">
-                    <path 
-                      fill={msg.sender === 'user' ? 'var(--tg-theme-button-color, #effdde)' : 'var(--tg-theme-bg-color, #ffffff)'} 
-                      d={msg.sender === 'user' ? "M0,0 L8,0 L0,8 Z" : "M8,0 L0,0 L8,8 Z"} 
-                    />
-                  </svg>
-                </div>
-
-                <div className="prose prose-sm max-w-none text-[15px] leading-snug break-words markdown-content">
-                  <ReactMarkdown>{msg.text}</ReactMarkdown>
-                </div>
-
-                {/* Share button - Visible for all bot messages EXCEPT the greeting (id: '1') */}
-                {msg.sender === 'bot' && msg.id !== '1' && (
-                  <div className="mt-3">
-                    <a 
-                      href={getWhatsAppLink(msg.text)} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center space-x-2 w-full py-2.5 bg-[#1B8BD1] text-white font-bold text-[10px] uppercase tracking-wider rounded-[4px] border border-[#EEF0F2] shadow-sm transition-all active:scale-95 no-underline"
-                    >
-                      <Share2 size={14} strokeWidth={3} />
-                      <span>compartilhar no zap</span>
-                    </a>
+                <div
+                  className={`max-w-[85%] px-3 py-2 rounded-[12px] shadow-sm relative transition-all duration-200 ${
+                    msg.sender === 'user'
+                      ? 'bg-[#effdde] text-gray-800 rounded-tr-none'
+                      : 'bg-white text-gray-800 rounded-tl-none'
+                  }`}
+                  style={msg.sender === 'user' ? { 
+                    backgroundColor: 'var(--tg-theme-button-color, #effdde)', 
+                    color: 'var(--tg-theme-button-text-color, #000000)' 
+                  } : {
+                    backgroundColor: 'var(--tg-theme-bg-color, #ffffff)',
+                    color: 'var(--tg-theme-text-color, #000000)'
+                  }}
+                >
+                  <div className={`absolute top-0 w-[8px] h-[8px] ${
+                    msg.sender === 'user' ? '-right-2' : '-left-2'
+                  }`}>
+                    <svg width="8" height="8" viewBox="0 0 8 8">
+                      <path 
+                        fill={msg.sender === 'user' ? 'var(--tg-theme-button-color, #effdde)' : 'var(--tg-theme-bg-color, #ffffff)'} 
+                        d={msg.sender === 'user' ? "M0,0 L8,0 L0,8 Z" : "M8,0 L0,0 L8,8 Z"} 
+                      />
+                    </svg>
                   </div>
-                )}
 
-                <div className="flex items-center justify-end mt-2">
-                  <span className="text-[10px] text-gray-400 select-none" style={{ color: 'var(--tg-theme-hint-color, #9ca3af)' }}>
-                    {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+                  <div className="prose prose-sm max-w-none text-[15px] leading-snug break-words markdown-content">
+                    <ReactMarkdown>{msg.text}</ReactMarkdown>
+                  </div>
+
+                  {/* Share button - ONLY if it's block info and NOT greeting */}
+                  {isBlockInfo && msg.id !== '1' && (
+                    <div className="mt-3">
+                      <a 
+                        href={getWhatsAppLink(msg.text)} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center space-x-2 w-full py-2.5 bg-[#1B8BD1] text-white font-bold text-[10px] uppercase tracking-wider rounded-[4px] border border-[#EEF0F2] shadow-sm transition-all active:scale-95 no-underline"
+                      >
+                        <Share2 size={14} strokeWidth={3} />
+                        <span>compartilhar no zap</span>
+                      </a>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end mt-2">
+                    <span className="text-[10px] text-gray-400 select-none" style={{ color: 'var(--tg-theme-hint-color, #9ca3af)' }}>
+                      {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {isLoading && (
             <div className="flex justify-start mb-4">
               <div className="bg-white px-4 py-3 rounded-[12px] rounded-tl-none shadow-sm relative flex items-center space-x-1" style={{ backgroundColor: 'var(--tg-theme-bg-color, #ffffff)' }}>
@@ -315,9 +319,6 @@ const App = () => {
         <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="max-w-3xl mx-auto flex items-end space-x-2">
           <div className="flex-1 relative flex items-center bg-gray-100 rounded-[20px] px-4 py-1.5 focus-within:bg-white focus-within:ring-1 focus-within:ring-[#0088cc] transition-all"
                style={{ backgroundColor: 'var(--tg-theme-bg-color, #f3f4f6)' }}>
-             <button type="button" className="p-1 text-gray-400 hover:text-[#0088cc] transition-colors">
-                <Info size={18} />
-             </button>
              <textarea
                 rows={1}
                 value={inputText}
@@ -332,7 +333,7 @@ const App = () => {
                     handleSendMessage();
                   }
                 }}
-                placeholder="Qual o bloco de hoje?"
+                placeholder="Fala tu..."
                 className="flex-1 bg-transparent border-none focus:ring-0 text-base py-1.5 resize-none max-h-32 placeholder:text-gray-400"
                 style={{ color: 'var(--tg-theme-text-color, #000000)' }}
               />
