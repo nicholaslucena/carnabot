@@ -6,8 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Carnabot - Guia de Blocos RJ</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Telegram Web App SDK -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(function(OneSignal) {
+        OneSignal.init({
+          // 1. Pegue o App ID no painel do OneSignal (Settings -> Keys & IDs)
+          appId: "SEU_APP_ID_AQUI", 
+          safari_web_id: "web.onesignal.auto.6378e9f5-4762-4752-9b24-3450947e45e7",
+          notifyButton: {
+            enable: false, // Mantemos falso para usar o nosso botão bonito dentro do chat
+          },
+          allowLocalhostAsSecureOrigin: true,
+        });
+      });
+    </script>
     <style>
       body {
         margin: 0;
@@ -15,8 +28,8 @@
         height: 100vh;
         width: 100vw;
         overflow: hidden;
-        background-color: var(--tg-theme-bg-color, #e7ebf0);
-        color: var(--tg-theme-text-color, #000000);
+        background-color: #e7ebf0;
+        color: #000000;
       }
     </style>
 <script type="importmap">
