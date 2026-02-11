@@ -9,13 +9,13 @@
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
-      OneSignalDeferred.push(function(OneSignal) {
+      window.OneSignalDeferred.push(function(OneSignal) {
         OneSignal.init({
-          // 1. Pegue o App ID no painel do OneSignal (Settings -> Keys & IDs)
+          // ATENÇÃO: Substitua a string abaixo pelo seu App ID real do OneSignal
           appId: "SEU_APP_ID_AQUI", 
           safari_web_id: "web.onesignal.auto.6378e9f5-4762-4752-9b24-3450947e45e7",
           notifyButton: {
-            enable: false, // Mantemos falso para usar o nosso botão bonito dentro do chat
+            enable: false,
           },
           allowLocalhostAsSecureOrigin: true,
         });
@@ -31,6 +31,8 @@
         background-color: #e7ebf0;
         color: #000000;
       }
+      /* Ocultar barra de rolagem do body */
+      ::-webkit-scrollbar { width: 0px; background: transparent; }
     </style>
 <script type="importmap">
 {

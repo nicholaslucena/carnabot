@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GoogleGenAI, Chat } from "@google/genai";
-import { Send, RefreshCw, Share2, BellRing, CheckCircle2, XCircle } from 'lucide-react';
+import { Send, RefreshCw, Share2, BellRing, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Y9NE_QmtnMB612wjFhmjg8v2lAXsZfmlMtZIW_IiTuE/export?format=csv"; 
@@ -71,7 +71,7 @@ Você é o "Carnabot", o guia oficial do Carnaval de Rua do Rio de Janeiro.
 Planilha de dados: ${JSON.stringify(data, null, 2)}
 
 DINÂMICA:
-- Tom Padrão: Carioca raiz ("mermão", "coé").
+- Tom Padrão: Carioca raiz ("mermão", "coé", "papo reto").
 - Modo Bicha Afrontosa: Se o usuário usar gírias LGBTQ+, mude para tom performático ("mona", "bicha", "arrasou").
 
 REGRAS:
@@ -104,8 +104,7 @@ const App = () => {
   const [chatSession, setChatSession] = useState<Chat | null>(null);
   const [blocoCount, setBlocoCount] = useState(0);
   
-  // Estados de Notificação
-  const [notificationStatus, setNotificationStatus] = useState<'default' | 'granted' | 'denied' | 'loading'>('loading');
+  const [notificationStatus, setNotificationStatus] = useState<'default' | 'granted' | 'denied' | 'loading' | 'error'>('loading');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -127,27 +126,31 @@ const App = () => {
 
         setMessages([{
           id: '1',
-          text: `Coé folião! **Carnabot** na área. 🎊\nTô com os blocos do Carnaval 2026 aqui. Qual a boa?\n\nAtiva as notificações para saber daquele bloco que anuncia a hora e o lugar de ultima hora!`,
+          text: `Coé folião! **Carnabot** na área. 🎊\nTô com os blocos do Carnaval 2026 aqui na mão. Qual a boa?\n\nAtiva as notificações aí pra não ficar perdido se o bloco mudar de lugar em cima da hora!`,
           sender: 'bot',
           timestamp: new Date(),
           showNotificationButton: true,
           hideTimestamp: true
         }]);
 
-        // Verificar status inicial do OneSignal
         window.OneSignalDeferred = window.OneSignalDeferred || [];
         window.OneSignalDeferred.push(async (OneSignal: any) => {
-          const permission = await OneSignal.Notifications.permission;
-          setNotificationStatus(permission ? 'granted' : 'default');
-          
-          // Ouvir mudanças de permissão
-          OneSignal.Notifications.addEventListener("permissionChange", (permission: boolean) => {
-            setNotificationStatus(permission ? 'granted' : 'denied');
-          });
+          setTimeout(async () => {
+            try {
+              const permission = await OneSignal.Notifications.permission;
+              setNotificationStatus(permission ? 'granted' : 'default');
+              
+              OneSignal.Notifications.addEventListener("permissionChange", (permission: boolean) => {
+                setNotificationStatus(permission ? 'granted' : 'denied');
+              });
+            } catch (e) {
+              setNotificationStatus('error');
+            }
+          }, 1000);
         });
 
       } catch (error) {
-        console.error("Erro:", error);
+        console.error("Erro fatal:", error);
       } finally {
         setIsFetchingData(false);
       }
@@ -183,7 +186,7 @@ const App = () => {
   };
 
   const handleEnableNotifications = () => {
-    if (notificationStatus === 'granted' || notificationStatus === 'loading') return;
+    if (notificationStatus === 'granted' || notificationStatus === 'loading' || notificationStatus === 'error') return;
     
     setNotificationStatus('loading');
 
@@ -203,12 +206,15 @@ const App = () => {
           }
         })
         .catch((err: any) => {
-          console.error("Erro ao pedir permissão:", err);
-          setNotificationStatus('default');
+          console.error("Erro na permissão:", err);
+          if (err.toString().includes('AppID')) {
+            setNotificationStatus('error');
+          } else {
+            setNotificationStatus('default');
+          }
         });
     } else {
-      alert("Serviço de notificação ainda carregando...");
-      setNotificationStatus('default');
+      setNotificationStatus('error');
     }
   };
 
@@ -222,19 +228,24 @@ const App = () => {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-[#2b2b2b] text-white">
         <RefreshCw className="animate-spin mb-4 text-white" size={48} />
-        <h1 className="text-xl font-bold">Lendo a planilha...</h1>
+        <h1 className="text-xl font-bold tracking-tighter">CARNABOT 2026</h1>
+        <p className="text-sm opacity-60">Lendo os dados da folia...</p>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col h-screen bg-[#f0f2f5] font-sans overflow-hidden">
-      <header className="bg-[#2b2b2b] text-white p-4 flex items-center justify-center shadow-lg z-10 border-b border-white/5 relative">
+      <header className="bg-[#2b2b2b] text-white p-4 flex items-center justify-between shadow-lg z-10 border-b border-white/5 relative">
+        <div className="flex-1"></div>
         <div className="text-center">
           <h1 className="text-xl font-black uppercase text-white tracking-tighter">Carnabot 🎊</h1>
-          <p className="text-[10px] font-bold mt-1 uppercase text-white/80">
-            {blocoCount} blocos atualizados
+          <p className="text-[10px] font-bold mt-1 uppercase text-white/60">
+            {blocoCount} blocos mapeados
           </p>
+        </div>
+        <div className="flex-1 flex justify-end">
+           {notificationStatus === 'granted' && <BellRing size={18} className="text-green-400 animate-pulse" />}
         </div>
       </header>
 
@@ -259,7 +270,9 @@ const App = () => {
                         notificationStatus === 'granted' 
                           ? 'bg-green-50 border-green-500 text-green-700 cursor-default' 
                           : notificationStatus === 'denied'
-                          ? 'bg-gray-100 border-gray-300 text-gray-500'
+                          ? 'bg-red-50 border-red-200 text-red-600'
+                          : notificationStatus === 'error'
+                          ? 'bg-amber-50 border-amber-300 text-amber-700'
                           : notificationStatus === 'loading'
                           ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-wait'
                           : 'bg-[#2b2b2b] border-[#2b2b2b] hover:bg-[#1a1a1a] text-white'
@@ -271,14 +284,17 @@ const App = () => {
                         <CheckCircle2 size={16} />
                       ) : notificationStatus === 'denied' ? (
                         <XCircle size={16} />
+                      ) : notificationStatus === 'error' ? (
+                        <AlertTriangle size={16} />
                       ) : (
                         <BellRing size={16} />
                       )}
                       
                       <span>
                         {notificationStatus === 'loading' ? 'Processando...' : 
-                         notificationStatus === 'granted' ? 'Notificações Ativas' : 
+                         notificationStatus === 'granted' ? 'Notificações Ativas ✅' : 
                          notificationStatus === 'denied' ? 'Acesso Negado' :
+                         notificationStatus === 'error' ? 'Erro no OneSignal' :
                          'Ativar Notificações'}
                       </span>
                     </button>
@@ -293,13 +309,13 @@ const App = () => {
                         className="flex items-center justify-center space-x-2 w-full py-2.5 bg-[#25D366] hover:bg-[#1ebe57] text-white font-black text-[12px] uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 no-underline"
                       >
                         <Share2 size={16} />
-                        <span>Mandar no Zap</span>
+                        <span>Mandar pro grupo</span>
                       </a>
                     </div>
                   )}
 
                   {!msg.hideTimestamp && (
-                    <div className="flex items-center justify-end mt-1 opacity-50">
+                    <div className="flex items-center justify-end mt-1 opacity-40">
                       <span className="text-[10px]">
                         {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
@@ -312,9 +328,9 @@ const App = () => {
           {isLoading && (
             <div className="flex justify-start mb-4">
               <div className="bg-white px-4 py-3 rounded-[18px] shadow-sm flex space-x-1">
-                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></span>
-                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.2s'}}></span>
-                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.4s'}}></span>
+                <span className="w-1.5 h-1.5 bg-[#2b2b2b] rounded-full animate-bounce"></span>
+                <span className="w-1.5 h-1.5 bg-[#2b2b2b] rounded-full animate-bounce" style={{animationDelay:'0.2s'}}></span>
+                <span className="w-1.5 h-1.5 bg-[#2b2b2b] rounded-full animate-bounce" style={{animationDelay:'0.4s'}}></span>
               </div>
             </div>
           )}
@@ -334,7 +350,7 @@ const App = () => {
                   e.target.style.height = `${e.target.scrollHeight}px`;
                 }}
                 onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }}}
-                placeholder="Fala tu..."
+                placeholder="Qual o próximo bloco?"
                 className="w-full bg-transparent border-none focus:ring-0 text-base py-1 outline-none resize-none max-h-32"
               />
           </div>
@@ -346,8 +362,10 @@ const App = () => {
 
       <style>{`
         .markdown-content p { margin-bottom: 0.5rem; white-space: pre-wrap; }
-        .markdown-content strong { font-weight: 800; }
-        .markdown-content a { color: #2b2b2b; font-weight: 600; text-decoration: underline; }
+        .markdown-content strong { font-weight: 800; color: #1a1a1a; }
+        .markdown-content a { color: #0066cc; font-weight: 600; text-decoration: underline; }
+        .markdown-content ul { list-style: none; padding-left: 0; }
+        .markdown-content li { margin-bottom: 4px; border-left: 3px solid #eee; padding-left: 8px; }
       `}</style>
     </div>
   );
