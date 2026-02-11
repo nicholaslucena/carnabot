@@ -85,7 +85,6 @@ interface Message {
   text: string;
   sender: 'user' | 'bot';
   timestamp: Date;
-  showNotificationButton?: boolean;
   hideTimestamp?: boolean;
 }
 
@@ -105,6 +104,7 @@ const App = () => {
   const [blocoCount, setBlocoCount] = useState(0);
   
   const [notificationStatus, setNotificationStatus] = useState<'default' | 'granted' | 'denied' | 'loading' | 'error'>('loading');
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -126,10 +126,9 @@ const App = () => {
 
         setMessages([{
           id: '1',
-          text: `Coé folião! **Carnabot** na área. 🎊\nTô com os blocos do Carnaval 2026 aqui na mão. Qual a boa?\n\nAtiva as notificações aí pra não ficar perdido se o bloco mudar de lugar em cima da hora!`,
+          text: `Coé folião! **Carnabot** na área. 🎊\nTô com os blocos do Carnaval 2026 aqui na mão. Qual a boa?`,
           sender: 'bot',
           timestamp: new Date(),
-          showNotificationButton: true,
           hideTimestamp: true
         }]);
 
@@ -140,6 +139,9 @@ const App = () => {
               const permission = await OneSignal.Notifications.permission;
               setNotificationStatus(permission ? 'granted' : 'default');
               
+              const isOptedOut = await OneSignal.User.PushSubscription.isOptedOut;
+              setIsSubscribed(permission && !isOptedOut);
+
               OneSignal.Notifications.addEventListener("permissionChange", (permission: boolean) => {
                 setNotificationStatus(permission ? 'granted' : 'denied');
               });
@@ -185,35 +187,40 @@ const App = () => {
     }
   };
 
-  const handleEnableNotifications = () => {
-    if (notificationStatus === 'granted' || notificationStatus === 'loading' || notificationStatus === 'error') return;
+  const handleToggleNotifications = async () => {
+    if (notificationStatus === 'loading' || !window.OneSignal) return;
     
     setNotificationStatus('loading');
 
-    if (window.OneSignal) {
-      window.OneSignal.Notifications.requestPermission()
-        .then((permission: string) => {
-          if (permission === 'granted') {
-            setNotificationStatus('granted');
-            setMessages(prev => [...prev, {
-              id: 'notif-success',
-              text: "✅ **Boa!** Já te coloquei na lista VIP. Se algum bloco mudar de lugar ou hora, eu te dou um grito aqui nas notificações!",
-              sender: 'bot',
-              timestamp: new Date()
-            }]);
-          } else {
-            setNotificationStatus('denied');
-          }
-        })
-        .catch((err: any) => {
-          console.error("Erro na permissão:", err);
-          if (err.toString().includes('AppID')) {
-            setNotificationStatus('error');
-          } else {
-            setNotificationStatus('default');
-          }
-        });
-    } else {
+    try {
+      if (notificationStatus !== 'granted') {
+        const permission = await window.OneSignal.Notifications.requestPermission();
+        if (permission === 'granted') {
+          setNotificationStatus('granted');
+          setIsSubscribed(true);
+          setMessages(prev => [...prev, {
+            id: 'notif-success',
+            text: "✅ **Boa!** Já te coloquei na lista VIP. Se algum bloco mudar de lugar ou hora, eu te dou um grito aqui nas notificações!",
+            sender: 'bot',
+            timestamp: new Date()
+          }]);
+        } else {
+          setNotificationStatus('denied');
+          setIsSubscribed(false);
+        }
+      } else {
+        const isOptedOut = await window.OneSignal.User.PushSubscription.isOptedOut;
+        if (isOptedOut) {
+          await window.OneSignal.User.PushSubscription.optIn();
+          setIsSubscribed(true);
+        } else {
+          await window.OneSignal.User.PushSubscription.optOut();
+          setIsSubscribed(false);
+        }
+        setNotificationStatus('granted'); // Manteve a permissão, apenas mudou o opt-in
+      }
+    } catch (err) {
+      console.error("Erro no toggle de notificações:", err);
       setNotificationStatus('error');
     }
   };
@@ -237,15 +244,28 @@ const App = () => {
   return (
     <div className="flex flex-col h-screen bg-[#f0f2f5] font-sans overflow-hidden">
       <header className="bg-[#2b2b2b] text-white p-4 flex items-center justify-between shadow-lg z-10 border-b border-white/5 relative">
-        <div className="flex-1"></div>
-        <div className="text-center">
+        <div className="flex flex-col">
           <h1 className="text-xl font-black uppercase text-white tracking-tighter">Carnabot 🎊</h1>
-          <p className="text-[10px] font-bold mt-1 uppercase text-white/60">
+          <p className="text-[10px] font-bold uppercase text-white/40">
             {blocoCount} blocos mapeados
           </p>
         </div>
-        <div className="flex-1 flex justify-end">
-           {notificationStatus === 'granted' && <BellRing size={18} className="text-green-400 animate-pulse" />}
+        
+        <div className="flex items-center space-x-3 bg-white/5 px-3 py-2 rounded-2xl border border-white/10">
+          <span className="text-[11px] font-black uppercase text-white/70 tracking-tight">Notificações</span>
+          <button 
+            onClick={handleToggleNotifications}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none ${
+              isSubscribed ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]' : 'bg-gray-600'
+            } ${notificationStatus === 'loading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            disabled={notificationStatus === 'loading'}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-all duration-300 ${
+                isSubscribed ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
         </div>
       </header>
 
@@ -262,44 +282,6 @@ const App = () => {
                     <ReactMarkdown>{msg.text}</ReactMarkdown>
                   </div>
                   
-                  {msg.showNotificationButton && (
-                    <button 
-                      onClick={handleEnableNotifications}
-                      disabled={notificationStatus === 'granted' || notificationStatus === 'loading'}
-                      className={`mt-4 mb-2 flex items-center justify-center space-x-2 w-full py-3 font-black text-[12px] uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 border-2 ${
-                        notificationStatus === 'granted' 
-                          ? 'bg-green-50 border-green-500 text-green-700 cursor-default' 
-                          : notificationStatus === 'denied'
-                          ? 'bg-red-50 border-red-200 text-red-600'
-                          : notificationStatus === 'error'
-                          ? 'bg-amber-50 border-amber-300 text-amber-700'
-                          : notificationStatus === 'loading'
-                          ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-wait'
-                          : 'bg-[#2b2b2b] border-[#2b2b2b] hover:bg-[#1a1a1a] text-white'
-                      }`}
-                    >
-                      {notificationStatus === 'loading' ? (
-                        <RefreshCw size={16} className="animate-spin" />
-                      ) : notificationStatus === 'granted' ? (
-                        <CheckCircle2 size={16} />
-                      ) : notificationStatus === 'denied' ? (
-                        <XCircle size={16} />
-                      ) : notificationStatus === 'error' ? (
-                        <AlertTriangle size={16} />
-                      ) : (
-                        <BellRing size={16} />
-                      )}
-                      
-                      <span>
-                        {notificationStatus === 'loading' ? 'Processando...' : 
-                         notificationStatus === 'granted' ? 'Notificações Ativas ✅' : 
-                         notificationStatus === 'denied' ? 'Acesso Negado' :
-                         notificationStatus === 'error' ? 'Erro no OneSignal' :
-                         'Ativar Notificações'}
-                      </span>
-                    </button>
-                  )}
-
                   {isBlockInfo && (
                     <div className="mt-3 border-t border-gray-100 pt-3">
                       <a 
