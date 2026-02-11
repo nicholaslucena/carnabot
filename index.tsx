@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GoogleGenAI, Chat } from "@google/genai";
-import { Send, RefreshCw, Share2, BellRing } from 'lucide-react';
+import { Send, RefreshCw, Share2, BellRing, CheckCircle2, XCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Y9NE_QmtnMB612wjFhmjg8v2lAXsZfmlMtZIW_IiTuE/export?format=csv"; 
@@ -91,6 +91,7 @@ interface Message {
 
 declare global {
   interface Window {
+    OneSignalDeferred: any[];
     OneSignal: any;
   }
 }
@@ -102,6 +103,10 @@ const App = () => {
   const [isFetchingData, setIsFetchingData] = useState(true);
   const [chatSession, setChatSession] = useState<Chat | null>(null);
   const [blocoCount, setBlocoCount] = useState(0);
+  
+  // Estados de Notificação
+  const [notificationStatus, setNotificationStatus] = useState<'default' | 'granted' | 'denied' | 'loading'>('loading');
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -128,6 +133,19 @@ const App = () => {
           showNotificationButton: true,
           hideTimestamp: true
         }]);
+
+        // Verificar status inicial do OneSignal
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        window.OneSignalDeferred.push(async (OneSignal: any) => {
+          const permission = await OneSignal.Notifications.permission;
+          setNotificationStatus(permission ? 'granted' : 'default');
+          
+          // Ouvir mudanças de permissão
+          OneSignal.Notifications.addEventListener("permissionChange", (permission: boolean) => {
+            setNotificationStatus(permission ? 'granted' : 'denied');
+          });
+        });
+
       } catch (error) {
         console.error("Erro:", error);
       } finally {
@@ -165,17 +183,32 @@ const App = () => {
   };
 
   const handleEnableNotifications = () => {
-    // Dispara o prompt nativo do browser via OneSignal
+    if (notificationStatus === 'granted' || notificationStatus === 'loading') return;
+    
+    setNotificationStatus('loading');
+
     if (window.OneSignal) {
       window.OneSignal.Notifications.requestPermission()
         .then((permission: string) => {
-          console.log("Permissão de notificação:", permission);
+          if (permission === 'granted') {
+            setNotificationStatus('granted');
+            setMessages(prev => [...prev, {
+              id: 'notif-success',
+              text: "✅ **Boa!** Já te coloquei na lista VIP. Se algum bloco mudar de lugar ou hora, eu te dou um grito aqui nas notificações!",
+              sender: 'bot',
+              timestamp: new Date()
+            }]);
+          } else {
+            setNotificationStatus('denied');
+          }
         })
         .catch((err: any) => {
           console.error("Erro ao pedir permissão:", err);
+          setNotificationStatus('default');
         });
     } else {
       alert("Serviço de notificação ainda carregando...");
+      setNotificationStatus('default');
     }
   };
 
@@ -198,7 +231,7 @@ const App = () => {
     <div className="flex flex-col h-screen bg-[#f0f2f5] font-sans overflow-hidden">
       <header className="bg-[#2b2b2b] text-white p-4 flex items-center justify-center shadow-lg z-10 border-b border-white/5 relative">
         <div className="text-center">
-          <h1 className="text-xl font-black uppercase text-white">Carnabot 🎊</h1>
+          <h1 className="text-xl font-black uppercase text-white tracking-tighter">Carnabot 🎊</h1>
           <p className="text-[10px] font-bold mt-1 uppercase text-white/80">
             {blocoCount} blocos atualizados
           </p>
@@ -221,10 +254,33 @@ const App = () => {
                   {msg.showNotificationButton && (
                     <button 
                       onClick={handleEnableNotifications}
-                      className="mt-4 mb-2 flex items-center justify-center space-x-2 w-full py-3 bg-[#2b2b2b] hover:bg-[#1a1a1a] text-white font-black text-[12px] uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95"
+                      disabled={notificationStatus === 'granted' || notificationStatus === 'loading'}
+                      className={`mt-4 mb-2 flex items-center justify-center space-x-2 w-full py-3 font-black text-[12px] uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 border-2 ${
+                        notificationStatus === 'granted' 
+                          ? 'bg-green-50 border-green-500 text-green-700 cursor-default' 
+                          : notificationStatus === 'denied'
+                          ? 'bg-gray-100 border-gray-300 text-gray-500'
+                          : notificationStatus === 'loading'
+                          ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-wait'
+                          : 'bg-[#2b2b2b] border-[#2b2b2b] hover:bg-[#1a1a1a] text-white'
+                      }`}
                     >
-                      <BellRing size={16} />
-                      <span>Ativar Notificações</span>
+                      {notificationStatus === 'loading' ? (
+                        <RefreshCw size={16} className="animate-spin" />
+                      ) : notificationStatus === 'granted' ? (
+                        <CheckCircle2 size={16} />
+                      ) : notificationStatus === 'denied' ? (
+                        <XCircle size={16} />
+                      ) : (
+                        <BellRing size={16} />
+                      )}
+                      
+                      <span>
+                        {notificationStatus === 'loading' ? 'Processando...' : 
+                         notificationStatus === 'granted' ? 'Notificações Ativas' : 
+                         notificationStatus === 'denied' ? 'Acesso Negado' :
+                         'Ativar Notificações'}
+                      </span>
                     </button>
                   )}
 
